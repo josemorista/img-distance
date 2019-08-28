@@ -22,7 +22,7 @@ int main(int argc, char** argv)
 	// Create a Control Window for trackbars
 	namedWindow("Controlers for HSV");
 
-	int iLowH = 102;
+	int iLowH = 100;
 	int iHighH = 130;
 
 	int iLowS = 76;
@@ -31,10 +31,10 @@ int main(int argc, char** argv)
 	int iLowV = 35;
 	int iHighV = 255;
 
-	int fLowH = 25;
-	int fHighH = 67;
+	int fLowH = 28;
+	int fHighH = 35;
 
-	int fLowS = 52;
+	int fLowS = 60;
 	int fHighS = 255;
 
 	int fLowV = 72;
@@ -53,7 +53,9 @@ int main(int argc, char** argv)
 
 	while (true)
 	{
-		int fR = 0, iR = 0, iposX, iposY, fposX, fposY;
+		int iposX, iposY, fposX, fposY;
+		double fR = 0, iR = 0, focal = 470, distanceFromCamera, realR = 1.65;
+		
 		Mat imgOriginal;
 		cap.read(imgOriginal);
 
@@ -61,7 +63,7 @@ int main(int argc, char** argv)
 		// Convert the captured frame from BGR to HSV
 		cvtColor(imgOriginal, imgHSV, COLOR_BGR2HSV);
 
-		// Create the Thresholded Image
+		// Create the Thresholdeds Images
 		Mat iThresholded, fThresholded;
 
 		inRange(imgHSV, Scalar(iLowH, iLowS, iLowV), Scalar(iHighH, iHighS, iHighV), iThresholded);
@@ -71,11 +73,12 @@ int main(int argc, char** argv)
 		erode(iThresholded, iThresholded, getStructuringElement(MORPH_RECT, Size(5, 5)));
 		erode(fThresholded, fThresholded, getStructuringElement(MORPH_RECT, Size(5, 5)));
 
-		// Calculate the Moments of the Thresholded Image
+		// Calculate the Moments of the Thresholdeds Images
 		Moments iMoments = moments(iThresholded);
 		Moments fMoments = moments(fThresholded);
 
-		// Calculate the Center of the Object
+		// Calculate the Centers of the Objects
+
 		double dM01 = iMoments.m01;
 		double dM10 = iMoments.m10;
 		double dArea = iMoments.m00;
@@ -84,6 +87,9 @@ int main(int argc, char** argv)
 			iposX = dM10 / dArea;
 			iposY = dM01 / dArea;
 			iR = sqrt((dArea / 255) / 3.14);
+			
+			// Calculate the Distance between the Object and the camera
+			distanceFromCamera = (focal * realR) / iR;
     			
 			if (iposX >= 0 && iposY >= 0)
 			{
@@ -99,26 +105,26 @@ int main(int argc, char** argv)
 		if (dArea > 50000) {
 			fposX = dM10 / dArea;
 			fposY = dM01 / dArea;
-			fR = sqrt((dArea / 255) / 3.14);
 			
+			fR = sqrt((dArea / 255) / 3.14);
+
 			if (fposX >= 0 && fposY >= 0)
 			{
 				circle(imgOriginal, Point(fposX, fposY), fR, Scalar(0,255,0), 2);
 			}
 		}
-
-		// Calculate the Distance between the Object and the camera
-		/*int realR = 4;
-		int f = -10;
-		int fpx = 750;
-		int d = (realR*fpx) / R + f;
-		cout << "Distance = " << d << endl;
-		cout << endl;*/
+		
 
 		// Calculate distance between the two circles
 		if (fR != 0 && iR != 0) {
-			int distance = sqrt(((fposX - iposX) * (fposX - iposX)) + ((fposY - iposY) * (fposY - iposY)));
-			cout << "Distance = " << distance << "px" << endl;
+			
+			line(imgOriginal, Point(iposX, iposY), Point (fposX, fposY), Scalar(255, 0, 0), 2);
+			
+			double distanceBetweenPx = sqrt(((fposX - iposX) * (fposX - iposX)) + ((fposY - iposY) * (fposY - iposY)));
+
+			double distanceBetweenCm = distanceBetweenPx * distanceFromCamera / focal;
+
+			cout << "Distance between = " << distanceBetweenCm << "cm" << endl;
 		}
 
 		imshow("Tracking", imgOriginal);
