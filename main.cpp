@@ -6,7 +6,7 @@
 #include <math.h>
 
 // Consts
-#define realRadious 1.5 // This value represents our objects real radious
+#define realRadious 0.3 // This value represents our objects real radious
 #define focal 450 // This value represents our camera focus
 #define minimumArea 1000 // this represents the minimum area to be considered an object
 
@@ -102,7 +102,7 @@ int main (int argc, char **argv)
 	namedWindow("Controlers for initialHSVfilter");
 	namedWindow("Controlers for finalHSVfilter");
 
-	// Here we choose the interval to get the objects by their HSV color, see the hsvMap to see your desired values!
+	// Here we choose the interval to get the objects by their HSV color, see the hsvMap to get your desired values!
 	initialObj.setHsvFilter(100, 76, 0, 130, 255, 255);
 	finalObj.setHsvFilter(28, 69, 0, 35, 255, 255);
 
@@ -134,7 +134,7 @@ int main (int argc, char **argv)
 		inRange(imgHSV, Scalar(initialObj.lowH, initialObj.lowS, initialObj.lowV), Scalar(initialObj.highH, initialObj.highS, initialObj.highV), iThresholded);
 		inRange(imgHSV, Scalar(finalObj.lowH, finalObj.lowS, finalObj.lowV), Scalar(finalObj.highH, finalObj.highS, finalObj.highV), fThresholded);
 
-		// Erode the imgages to remove noise
+		// Erode the images to remove some noise
 		erode(iThresholded, iThresholded, getStructuringElement(MORPH_RECT, Size(5, 5)));
 		erode(fThresholded, fThresholded, getStructuringElement(MORPH_RECT, Size(5, 5)));
 
