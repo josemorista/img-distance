@@ -46,14 +46,17 @@ class TrackingObject
 			double dM10 = m.m10;
 			double dArea = m.m00;
 
+			// Check the min area
 			if (dArea < this->minArea) return;
 
+			// Calculate the centroid of the object
 			this->x = dM10 / dArea;
 			this->y = dM01 / dArea;
 			
+			// Calculate our object radious
 			this->R = sqrt((dArea / 255) / 3.14);
 
-			// Calculate the Distance between the Object and the camera
+			// Calculate the distance between the Object and the camera
 			this->distanceFromCamera = (focal * this->realR) / this->R;
 		}
 
@@ -99,6 +102,7 @@ int main (int argc, char **argv)
 	namedWindow("Controlers for initialHSVfilter");
 	namedWindow("Controlers for finalHSVfilter");
 
+	// Here we choose the interval to get the objects by their HSV color, see the hsvMap to see your desired values!
 	initialObj.setHsvFilter(100, 76, 0, 130, 255, 255);
 	finalObj.setHsvFilter(28, 69, 0, 35, 255, 255);
 
@@ -130,7 +134,7 @@ int main (int argc, char **argv)
 		inRange(imgHSV, Scalar(initialObj.lowH, initialObj.lowS, initialObj.lowV), Scalar(initialObj.highH, initialObj.highS, initialObj.highV), iThresholded);
 		inRange(imgHSV, Scalar(finalObj.lowH, finalObj.lowS, finalObj.lowV), Scalar(finalObj.highH, finalObj.highS, finalObj.highV), fThresholded);
 
-		// Erode to remove noise
+		// Erode the imgages to remove noise
 		erode(iThresholded, iThresholded, getStructuringElement(MORPH_RECT, Size(5, 5)));
 		erode(fThresholded, fThresholded, getStructuringElement(MORPH_RECT, Size(5, 5)));
 
@@ -146,10 +150,12 @@ int main (int argc, char **argv)
 		initialObj.drawCircle(imgOriginal);
 		finalObj.drawCircle(imgOriginal);
 
+		// Draw a line between the objects
 		initialObj.drawLineBetweenObject(imgOriginal, finalObj);
 
+		// Calcultate the distance between the objects
 		double distance = initialObj.calculateDistanceBetweenObjct(finalObj);
-		cout << "Distance between = " << distance << "cm" << endl;
+		if (distance > 0) cout << "Distance between = " << distance << "cm" << endl;
 		
 		// Show result to user
 		imshow("Result!", imgOriginal);
