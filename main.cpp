@@ -93,25 +93,38 @@ public:
 int main(int argc, char **argv)
 {
 
-	String imgPath;
+	String path;
+	String readType;
 
 	if (argc > 1)
 	{
-		imgPath = argv[1];
+		path = argv[1];
+		readType = argv[2];
 	}
 	else
 	{
 		char resp;
-		cout << "Do you want to process a static img?(y/n)" << endl;
+		cout << "Do you want to process a static file?(y/n)" << endl;
 		cin >> resp;
 		if (resp == 'y')
 		{
-			cout << "Type me the img path:" << endl;
-			cin >> imgPath;
+			cout << "What's the path?" << endl;
+			cin >> path;
+			cout << "Is it a video?(y/n)" << endl;
+			cin >> resp;
+			if (resp == 'y')
+			{
+				readType = "video";
+			}
+			else
+			{
+				readType = "img";
+			}
 		}
 	}
 
-	// Video capture variable
+	VideoCapture myCap(path);
+
 	VideoCapture cap(0);
 
 	if (!cap.isOpened())
@@ -128,8 +141,8 @@ int main(int argc, char **argv)
 	namedWindow("Controlers for finalHSVfilter");
 
 	// Here we choose the interval to get the objects by their HSV color, see the hsvMap to get your desired values!
-	initialObj.setHsvFilter(160, 70, 0, 180, 255, 255);
-	finalObj.setHsvFilter(2, 107, 0, 33, 255, 255);
+	initialObj.setHsvFilter(160, 122, 0, 180, 255, 255);
+	finalObj.setHsvFilter(2, 110, 0, 33, 255, 255);
 
 	// Create Trackbars
 	createTrackbar("LowH", "Controlers for initialHSVfilter", &initialObj.lowH, 179);
@@ -148,9 +161,18 @@ int main(int argc, char **argv)
 		Mat imgOriginal;
 		// Capture image from camera
 
-		if (imgPath.length() > 0)
+		if (path.length() > 0)
 		{
-			imgOriginal = imread(imgPath);
+			if (readType == "img")
+				imgOriginal = imread(path);
+			if (readType == "video")
+			{
+				if (!myCap.isOpened())
+				{
+					exit(0);
+				}
+				myCap.read(imgOriginal);
+			}
 		}
 		else
 		{
@@ -195,12 +217,6 @@ int main(int argc, char **argv)
 
 		// Show result to user
 		imshow("Result!", imgOriginal);
-
-		if (imgPath.length() > 0)
-		{
-			cout << "processed " << imgPath << endl;
-			// return 0;
-		}
 
 		// Wait for key is pressed then break loop
 		if (waitKey(5) == 27) //ESC == 27
