@@ -10,20 +10,44 @@
 #define realRadious 1.25 // This value represents our objects real radious
 #define focal 1					 // This value represents our camera focus
 #define minimumArea 1000 // this represents the minimum area to be considered an object
-
+#define JAN_OFFSET 0
 using namespace cv;
 using namespace std;
 
+class Window
+{
+	char *m_name;
+
+public:
+	Window(char *name, int tam_ja, int x, int y)
+	{
+		m_name = name;
+		namedWindow(m_name, WINDOW_NORMAL & CV_GUI_NORMAL);
+		moveWindow(m_name, tam_ja * x + JAN_OFFSET, tam_ja * y + JAN_OFFSET);
+		resizeWindow(m_name, tam_ja, tam_ja);
+	}
+	void imshow(Mat img)
+	{
+		cv::imshow(m_name, img);
+	}
+	void createTrackbar(char *trackName, int *var, int max_val)
+	{
+		cv::createTrackbar(trackName, m_name, var, max_val);
+	}
+};
 // Here comes our classes
 class TrackingObject
 {
 public:
 	int lowH, lowS, lowV, highH, highS, highV;
 	int x, y;
+	int abertura, fechamento;
 	double distanceFromCamera, realR, R, minArea;
 
 	TrackingObject(double realR = realRadious, double minArea = minimumArea)
 	{
+		this->abertura = 8;
+		this->fechamento = 35;
 		this->x = 0;
 		this->y = 0;
 		this->R = 0;
@@ -96,7 +120,7 @@ int main(int argc, char **argv)
 	String path;
 	String readType;
 
-	if (argc > 1)
+	if (argc > 2)
 	{
 		path = argv[1];
 		readType = argv[2];
@@ -105,13 +129,13 @@ int main(int argc, char **argv)
 	{
 		char resp;
 		cout << "Do you want to process a static file?(y/n)" << endl;
-		cin >> resp;
+		//cin >> resp;
 		if (resp == 'y')
 		{
 			cout << "What's the path?" << endl;
-			cin >> path;
+			//cin >> path;
 			cout << "Is it a video?(y/n)" << endl;
-			cin >> resp;
+			//cin >> resp;
 			if (resp == 'y')
 			{
 				readType = "video";
@@ -137,23 +161,31 @@ int main(int argc, char **argv)
 	TrackingObject initialObj, finalObj;
 
 	// Creates windows of trackbars to help the user to calibrate the HSV filters
-	namedWindow("Controlers for initialHSVfilter");
-	namedWindow("Controlers for finalHSVfilter");
+	Window controllerInitialHSVfilter = Window("Controlers for initialHSVfilter", 400, 0, 0);
 
 	// Here we choose the interval to get the objects by their HSV color, see the hsvMap to get your desired values!
-	initialObj.setHsvFilter(160, 122, 0, 180, 255, 255);
-	finalObj.setHsvFilter(2, 110, 0, 33, 255, 255);
+	initialObj.setHsvFilter(160, 122, 0, 200, 213, 255);
+	finalObj.setHsvFilter(57, 93, 0, 77, 199, 255);
 
 	// Create Trackbars
-	createTrackbar("LowH", "Controlers for initialHSVfilter", &initialObj.lowH, 179);
-	createTrackbar("HighH", "Controlers for initialHSVfilter", &initialObj.highH, 179);
-	createTrackbar("LowS", "Controlers for initialHSVfilter", &initialObj.lowS, 255);
-	createTrackbar("HighS", "Controlers for initialHSVfilter", &initialObj.highS, 255);
+	controllerInitialHSVfilter.createTrackbar("I_LowH", &initialObj.lowH, 255);
+	controllerInitialHSVfilter.createTrackbar("I_HighH", &initialObj.highH, 255);
+	controllerInitialHSVfilter.createTrackbar("I_LowS", &initialObj.lowS, 255);
+	controllerInitialHSVfilter.createTrackbar("I_HighS", &initialObj.highS, 255);
 
-	createTrackbar("LowH", "Controlers for finalHSVfilter", &finalObj.lowH, 179);
-	createTrackbar("HighH", "Controlers for finalHSVfilter", &finalObj.highH, 179);
-	createTrackbar("LowS", "Controlers for finalHSVfilter", &finalObj.lowS, 255);
-	createTrackbar("HighS", "Controlers for finalHSVfilter", &finalObj.highS, 255);
+	controllerInitialHSVfilter.createTrackbar("F_LowH", &finalObj.lowH, 255);
+	controllerInitialHSVfilter.createTrackbar("F_HighH", &finalObj.highH, 255);
+	controllerInitialHSVfilter.createTrackbar("F_LowS", &finalObj.lowS, 255);
+	controllerInitialHSVfilter.createTrackbar("F_HighS", &finalObj.highS, 255);
+
+	controllerInitialHSVfilter.createTrackbar("Abertura_Tam", &finalObj.abertura, 120);
+	controllerInitialHSVfilter.createTrackbar("Fechamento_Tam", &finalObj.fechamento, 120);
+
+	Window result("result", 400, 0, 1);
+	Window thresh_laranja("thresh_laranja", 400, 1, 0);
+	Window thresh_rosa("thresh_rosa", 400, 2, 0);
+	Window tratada_thresh_laranja("Tratada_thresh_laranja", 400, 1, 1);
+	Window tratada_thresh_rosa("Tratada_thresh_rosa", 400, 2, 1);
 
 	while (true)
 	{
@@ -189,11 +221,34 @@ int main(int argc, char **argv)
 		inRange(imgHSV, Scalar(initialObj.lowH, initialObj.lowS, initialObj.lowV), Scalar(initialObj.highH, initialObj.highS, initialObj.highV), iThresholded);
 		inRange(imgHSV, Scalar(finalObj.lowH, finalObj.lowS, finalObj.lowV), Scalar(finalObj.highH, finalObj.highS, finalObj.highV), fThresholded);
 
+		thresh_laranja.imshow(iThresholded);
+		thresh_rosa.imshow(fThresholded);
+
 		// Erode the images to remove some noise
-		erode(iThresholded, iThresholded, getStructuringElement(MORPH_RECT, Size(8, 8)));
-		dilate(iThresholded, iThresholded, getStructuringElement(MORPH_RECT, Size(8, 8)));
-		erode(fThresholded, fThresholded, getStructuringElement(MORPH_RECT, Size(8, 8)));
-		dilate(fThresholded, fThresholded, getStructuringElement(MORPH_RECT, Size(8, 8)));
+		if (finalObj.abertura > 0)
+		{
+			erode(iThresholded, iThresholded, getStructuringElement(MORPH_RECT, Size(finalObj.abertura, finalObj.abertura)));
+			dilate(iThresholded, iThresholded, getStructuringElement(MORPH_RECT, Size(finalObj.abertura, finalObj.abertura)));
+		}
+		if (finalObj.fechamento > 0)
+		{
+			dilate(iThresholded, iThresholded, getStructuringElement(MORPH_RECT, Size(finalObj.fechamento, finalObj.fechamento)));
+			erode(iThresholded, iThresholded, getStructuringElement(MORPH_RECT, Size(finalObj.fechamento, finalObj.fechamento)));
+		}
+
+		if (finalObj.abertura > 0)
+		{
+			erode(fThresholded, fThresholded, getStructuringElement(MORPH_RECT, Size(finalObj.abertura, finalObj.abertura)));
+			dilate(fThresholded, fThresholded, getStructuringElement(MORPH_RECT, Size(finalObj.abertura, finalObj.abertura)));
+		}
+		if (finalObj.fechamento > 0)
+		{
+			dilate(fThresholded, fThresholded, getStructuringElement(MORPH_RECT, Size(finalObj.fechamento, finalObj.fechamento)));
+			erode(fThresholded, fThresholded, getStructuringElement(MORPH_RECT, Size(finalObj.fechamento, finalObj.fechamento)));
+		}
+
+		tratada_thresh_laranja.imshow(iThresholded);
+		tratada_thresh_rosa.imshow(fThresholded);
 
 		// Calculate the Moments of the Thresholdeds Images
 		Moments iMoments = moments(iThresholded);
@@ -216,7 +271,7 @@ int main(int argc, char **argv)
 			cout << "Distance between = " << distance << "cm" << endl;
 
 		// Show result to user
-		imshow("Result!", imgOriginal);
+		result.imshow(imgOriginal);
 
 		// Wait for key is pressed then break loop
 		if (waitKey(5) == 27) //ESC == 27
