@@ -161,11 +161,11 @@ int main(int argc, char **argv)
 	TrackingObject initialObj, finalObj;
 
 	// Creates windows of trackbars to help the user to calibrate the HSV filters
-	Window controllerInitialHSVfilter = Window("Controlers for initialHSVfilter", 400, 0, 0);
+	Window controllerInitialHSVfilter = Window("Controlers for initialHSVfilter", 450, 0, 0);
 
 	// Here we choose the interval to get the objects by their HSV color, see the hsvMap to get your desired values!
 	initialObj.setHsvFilter(160, 122, 0, 200, 213, 255);
-	finalObj.setHsvFilter(57, 93, 0, 77, 199, 255);
+	finalObj.setHsvFilter(57, 93, 0, 77, 221, 255);
 
 	// Create Trackbars
 	controllerInitialHSVfilter.createTrackbar("I_LowH", &initialObj.lowH, 255);
@@ -267,11 +267,16 @@ int main(int argc, char **argv)
 
 		// Calcultate the distance between the objects
 		double distance = finalObj.calculateDistanceBetweenObjct(initialObj);
+		Mat distance_txt= Mat::zeros(30,340,CV_8UC3);
 		if (distance > 0)
-			cout << "Distance between = " << distance << "cm" << endl;
-
+			{
+			char txt[35];
+			sprintf(txt,"Distance between = %f cm",distance);
+			putText(distance_txt, txt, cvPoint(5,15),FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(255,255,255), 1, CV_AA);
+			}
 		// Show result to user
 		result.imshow(imgOriginal);
+		controllerInitialHSVfilter.imshow(distance_txt);
 
 		// Wait for key is pressed then break loop
 		if (waitKey(5) == 27) //ESC == 27
