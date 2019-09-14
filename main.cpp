@@ -10,30 +10,97 @@
 #define realRadious 1.25 // This value represents our objects real radious
 #define focal 1					 // This value represents our camera focus
 #define minimumArea 1000 // this represents the minimum area to be considered an object
-#define JAN_OFFSET 0
+#define JAN_OFFSET 20
 using namespace cv;
 using namespace std;
 
+	void callbackButton(int state, void* userdata)
+	{
+		*(bool*)userdata = !state;
+	}
+vector<int> channelToHist(Mat img)
+{	
+
+	vector<int> res(255, 0);
+	for(int i=0;i<img.rows;i++)
+		for(int j=0;j<img.cols;j++)
+			res[img.at<uchar>(i,j)]++;
+	return res;
+}
+Mat histToImage(vector<int> hist)
+{
+	int bins=hist.size();
+	int maxy=0;
+	for(int i=0;i<bins;i++)
+		if(hist[i]>maxy)
+		maxy=hist[i];
+	for(int i=0;i<bins;i++)
+		hist[i] = (hist[i]*bins)/maxy;
+	Mat res = Mat::zeros(bins,bins,CV_8UC3);
+	for(int i=0;i<bins;i++)
+		for(int j=0;j<hist[i];j++)
+			res.at<Vec3b>(bins-j-1,i) = Vec3b(0,0,255);
+return res;
+}
 class Window
 {
 	char *m_name;
+	int tam_ja;
+	int x,y;
+	
+	bool created;
 
 public:
+bool closed;
 	Window(char *name, int tam_ja, int x, int y)
 	{
+		this->tam_ja=tam_ja;
+		this->x=x;
+		this->y=y;
+		
+		closed=true;
+		created=true;
 		m_name = name;
-		namedWindow(m_name, WINDOW_NORMAL & CV_GUI_NORMAL);
+		if(!strcmp(name,"result"))
+		{
+		namedWindow(m_name,CV_WINDOW_NORMAL);
 		moveWindow(m_name, tam_ja * x + JAN_OFFSET, tam_ja * y + JAN_OFFSET);
 		resizeWindow(m_name, tam_ja, tam_ja);
+		}
+		if(strcmp(name,"result"))
+			createButton(name,callbackButton,&closed,CV_CHECKBOX,0);
 	}
 	void imshow(Mat img)
 	{
+		
+		if(closed && created)
+			close();
+		if(!closed && !created)
+			show();
+
+		if(created)
 		cv::imshow(m_name, img);
 	}
 	void createTrackbar(char *trackName, int *var, int max_val)
 	{
-		cv::createTrackbar(trackName, m_name, var, max_val);
+		cvCreateTrackbar(trackName, m_name, var, max_val);
 	}
+	void close(){
+		destroyWindow(m_name);
+		created=false;
+	}
+	void show(){
+		created=true;
+		namedWindow(m_name,CV_WINDOW_NORMAL | CV_GUI_NORMAL);
+		moveWindow(m_name, tam_ja * x + JAN_OFFSET, tam_ja * y + JAN_OFFSET);
+		resizeWindow(m_name, tam_ja, tam_ja);
+	}
+	void displayText(char * txt)
+	{
+		displayStatusBar(m_name,txt, 0 );
+	}
+
+	
 };
 // Here comes our classes
 class TrackingObject
@@ -159,33 +226,41 @@ int main(int argc, char **argv)
 
 	// Our objects
 	TrackingObject initialObj, finalObj;
-
-	// Creates windows of trackbars to help the user to calibrate the HSV filters
-	Window controllerInitialHSVfilter = Window("Controlers for initialHSVfilter", 450, 0, 0);
-
+	
 	// Here we choose the interval to get the objects by their HSV color, see the hsvMap to get your desired values!
 	initialObj.setHsvFilter(160, 122, 0, 200, 213, 255);
 	finalObj.setHsvFilter(57, 93, 0, 77, 221, 255);
 
 	// Create Trackbars
-	controllerInitialHSVfilter.createTrackbar("I_LowH", &initialObj.lowH, 255);
-	controllerInitialHSVfilter.createTrackbar("I_HighH", &initialObj.highH, 255);
-	controllerInitialHSVfilter.createTrackbar("I_LowS", &initialObj.lowS, 255);
-	controllerInitialHSVfilter.createTrackbar("I_HighS", &initialObj.highS, 255);
 
-	controllerInitialHSVfilter.createTrackbar("F_LowH", &finalObj.lowH, 255);
-	controllerInitialHSVfilter.createTrackbar("F_HighH", &finalObj.highH, 255);
-	controllerInitialHSVfilter.createTrackbar("F_LowS", &finalObj.lowS, 255);
-	controllerInitialHSVfilter.createTrackbar("F_HighS", &finalObj.highS, 255);
 
-	controllerInitialHSVfilter.createTrackbar("Abertura_Tam", &finalObj.abertura, 120);
-	controllerInitialHSVfilter.createTrackbar("Fechamento_Tam", &finalObj.fechamento, 120);
 
-	Window result("result", 400, 0, 1);
+
+
+
+	Window result("result", 400, 0, 0);
+	result.closed=0;
 	Window thresh_laranja("thresh_laranja", 400, 1, 0);
-	Window thresh_rosa("thresh_rosa", 400, 2, 0);
-	Window tratada_thresh_laranja("Tratada_thresh_laranja", 400, 1, 1);
-	Window tratada_thresh_rosa("Tratada_thresh_rosa", 400, 2, 1);
+	cvCreateTrackbar("F_LowH",NULL, &finalObj.lowH, 255);
+	cvCreateTrackbar("F_HighH",NULL, &finalObj.highH, 255);
+	cvCreateTrackbar("F_LowS",NULL, &finalObj.lowS, 255);
+	cvCreateTrackbar("F_HighS",NULL, &finalObj.highS, 255);
+	Window thresh_rosa("thresh_rosa", 400, 1, 0);
+	cvCreateTrackbar("I_LowH",NULL, &initialObj.lowH, 255);
+	cvCreateTrackbar("I_HighH",NULL, &initialObj.highH, 255);
+	cvCreateTrackbar("I_LowS",NULL, &initialObj.lowS, 255);
+	cvCreateTrackbar("I_HighS",NULL, &initialObj.highS, 255);
+	Window H("H", 400, 1, 0);
+	Window S("S", 400, 2, 0);
+	Window V("V", 400, 3, 0);
+	Window H_hist("H_hist", 400, 1, 1);
+	Window S_hist("S_hist", 400, 2, 1);
+	Window V_hist("V_hist", 400, 3, 1);
+	cvCreateTrackbar("Abertura_Tam",NULL, &finalObj.abertura, 120);
+	cvCreateTrackbar("Fechamento_Tam",NULL, &finalObj.fechamento, 120);
+	Window tratada_thresh_rosa("Tratada_thresh_rosa", 400, 2, 0);
+	Window tratada_thresh_laranja("Tratada_thresh_laranja", 400, 2, 0);
+
 
 	while (true)
 	{
@@ -267,16 +342,23 @@ int main(int argc, char **argv)
 
 		// Calcultate the distance between the objects
 		double distance = finalObj.calculateDistanceBetweenObjct(initialObj);
-		Mat distance_txt= Mat::zeros(30,340,CV_8UC3);
 		if (distance > 0)
 			{
 			char txt[35];
 			sprintf(txt,"Distance between = %f cm",distance);
-			putText(distance_txt, txt, cvPoint(5,15),FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(255,255,255), 1, CV_AA);
+			result.displayText(txt);
+			//putText(distance_txt, txt, cvPoint(5,15),FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(255,255,255), 1, CV_AA);
 			}
 		// Show result to user
 		result.imshow(imgOriginal);
-		controllerInitialHSVfilter.imshow(distance_txt);
+		vector<Mat> channels;
+		split(imgHSV,channels);
+		H.imshow(channels[0]);
+		S.imshow(channels[1]);
+		V.imshow(channels[2]);
+		H_hist.imshow(histToImage(channelToHist(channels[0])));
+		S_hist.imshow(histToImage(channelToHist(channels[1])));
+		V_hist.imshow(histToImage(channelToHist(channels[2])));
 
 		// Wait for key is pressed then break loop
 		if (waitKey(5) == 27) //ESC == 27
