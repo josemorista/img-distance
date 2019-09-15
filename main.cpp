@@ -68,7 +68,7 @@ bool closed;
 		resizeWindow(m_name, tam_ja, tam_ja);
 		}
 		if(strcmp(name,"result"))
-			createButton(name,callbackButton,&closed,CV_CHECKBOX,0);
+			createButton(name,callbackButton,&closed,QT_CHECKBOX,0);
 	}
 	void imshow(Mat img)
 	{
@@ -108,18 +108,20 @@ class TrackingObject
 public:
 	int lowH, lowS, lowV, highH, highS, highV;
 	int x, y;
-	int abertura, fechamento;
+	int abertura, fechamento,tam_rect;
 	double distanceFromCamera, realR, R, minArea;
 
 	TrackingObject(double realR = realRadious, double minArea = minimumArea)
 	{
 		this->abertura = 8;
 		this->fechamento = 35;
+		this->tam_rect = 50;
 		this->x = 0;
 		this->y = 0;
 		this->R = 0;
 		this->realR = realR;
 		this->minArea = minArea;
+		
 	}
 
 	void setHsvFilter(int lowH, int lowS, int lowV, int highH, int highS, int highV)
@@ -161,6 +163,17 @@ public:
 		{
 			circle(img, Point(this->x, this->y), this->R, color, 2);
 		}
+	}
+	Mat RectWithTam(cv::Mat &img)
+	{
+		//tam_rect = 1.2*R;
+		 Point temp = Point(tam_rect, tam_rect);
+		 Point esq = Point(this->x, this->y)-temp;
+		 Point dir = Point(this->x, this->y)+temp;
+		 if(esq.x<0 || esq.y<0 || esq.x >= img.cols || esq.y>=img.rows
+		 	|| dir.x<0 || dir.y<0 || dir.x >= img.cols || dir.y>=img.rows)
+			 return Mat::zeros(10,10,CV_8UC1);
+		return img(Rect(esq,dir));
 	}
 
 	void drawLineBetweenObject(cv::Mat &img, TrackingObject obj, Scalar color = Scalar(255, 0, 0))
@@ -228,8 +241,8 @@ int main(int argc, char **argv)
 	TrackingObject initialObj, finalObj;
 	
 	// Here we choose the interval to get the objects by their HSV color, see the hsvMap to get your desired values!
-	initialObj.setHsvFilter(160, 122, 0, 200, 213, 255);
-	finalObj.setHsvFilter(57, 93, 0, 77, 221, 255);
+	initialObj.setHsvFilter(160, 100, 0, 200, 213, 255);
+	finalObj.setHsvFilter(70, 100, 0, 77, 221, 255);
 
 	// Create Trackbars
 
@@ -237,15 +250,22 @@ int main(int argc, char **argv)
 
 
 
-
+	bool otsu_not_used=true;
 	Window result("result", 400, 0, 0);
 	result.closed=0;
-	Window thresh_laranja("thresh_laranja", 400, 1, 0);
+	createButton("Cortar e segmentar",callbackButton,&otsu_not_used,QT_CHECKBOX,0);
+	Window Final_Cortada("Final Cortada", 400, 1, 0);
+	Window Final_Cortada_Histograma("Final Cortada Histograma", 400, 1, 1);
+	cvCreateTrackbar("Tamanho rect final",NULL, &finalObj.tam_rect, 400);
+	Window Inicial_Cortada("Inicial Cortada", 400, 1, 0);
+	Window Inicial_Cortada_Histograma("Inicial Cortada Histograma", 400, 1, 1);
+	cvCreateTrackbar("Tamanho rect inicial",NULL, &initialObj.tam_rect, 400);
+	Window thresh_rosa("Final", 400, 1, 0);
 	cvCreateTrackbar("F_LowH",NULL, &finalObj.lowH, 255);
 	cvCreateTrackbar("F_HighH",NULL, &finalObj.highH, 255);
 	cvCreateTrackbar("F_LowS",NULL, &finalObj.lowS, 255);
 	cvCreateTrackbar("F_HighS",NULL, &finalObj.highS, 255);
-	Window thresh_rosa("thresh_rosa", 400, 1, 0);
+	Window thresh_laranja("Inicial", 400, 1, 0);
 	cvCreateTrackbar("I_LowH",NULL, &initialObj.lowH, 255);
 	cvCreateTrackbar("I_HighH",NULL, &initialObj.highH, 255);
 	cvCreateTrackbar("I_LowS",NULL, &initialObj.lowS, 255);
@@ -266,6 +286,7 @@ int main(int argc, char **argv)
 	{
 
 		Mat imgOriginal;
+		
 		// Capture image from camera
 
 		if (path.length() > 0)
@@ -289,6 +310,8 @@ int main(int argc, char **argv)
 		Mat imgHSV;
 		// Convert the captured frame from BGR to HSV
 		cvtColor(imgOriginal, imgHSV, COLOR_BGR2HSV);
+		vector<Mat> channels;
+		split(imgHSV,channels);
 
 		// Create and filter the thresholdeds Images
 		Mat iThresholded, fThresholded;
@@ -325,6 +348,8 @@ int main(int argc, char **argv)
 		tratada_thresh_laranja.imshow(iThresholded);
 		tratada_thresh_rosa.imshow(fThresholded);
 
+
+
 		// Calculate the Moments of the Thresholdeds Images
 		Moments iMoments = moments(iThresholded);
 		Moments fMoments = moments(fThresholded);
@@ -332,6 +357,22 @@ int main(int argc, char **argv)
 		// Calculate what we need with the moments
 		initialObj.calculateCoordinatesWithMoments(iMoments);
 		finalObj.calculateCoordinatesWithMoments(fMoments);
+
+
+		if(!otsu_not_used)
+		{	
+			Mat temp = finalObj.RectWithTam(channels[0]);
+			Final_Cortada_Histograma.imshow(histToImage(channelToHist(temp)));
+			threshold(temp, temp, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+			Final_Cortada.imshow(temp);
+
+			temp = initialObj.RectWithTam(channels[0]);
+			Inicial_Cortada_Histograma.imshow(histToImage(channelToHist(temp)));
+			threshold(temp, temp, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+			Inicial_Cortada.imshow(temp);
+		}
+		
+
 
 		// Draw the two circles
 		initialObj.drawCircle(imgOriginal);
@@ -351,8 +392,6 @@ int main(int argc, char **argv)
 			}
 		// Show result to user
 		result.imshow(imgOriginal);
-		vector<Mat> channels;
-		split(imgHSV,channels);
 		H.imshow(channels[0]);
 		S.imshow(channels[1]);
 		V.imshow(channels[2]);
