@@ -1,3 +1,7 @@
+/*
+COMPILE -->  g++ main.cpp -o main.exe `pkg-config --cflags --libs opencv` -w
+EXECUTE --> ./main.exe
+*/
 #include <iostream>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -229,7 +233,7 @@ int main(int argc, char **argv)
 
 	VideoCapture myCap(path);
 
-	VideoCapture cap(0);
+	VideoCapture cap(1);
 
 	if (!cap.isOpened())
 	{
@@ -400,7 +404,7 @@ int main(int argc, char **argv)
 		V_hist.imshow(histToImage(channelToHist(channels[2])));
 
 		// Wait for key is pressed then break loop
-		if (waitKey(5) == 27) //ESC == 27
+		if (waitKey(500) == 27) //ESC == 27
 		{
 			break;
 		}
